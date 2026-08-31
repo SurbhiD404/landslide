@@ -1,0 +1,60 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+.venv/
+venv/
+env/
+
+# Node
+node_modules/
+.pnp
+.pnp.js
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Large data files
+data/raw/*
+!data/raw/.gitkeep
+
+# ML artifacts
+*.pkl
+*.joblib
+*.h5
+ml-notebooks/.ipynb_checkpoints/
+
+# Logs
+*.log
+
+# Docker
+*.log
+
+# Test
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Rust/Build
+target/
+
+# Docker volumes
+docker-compose.override.yml
