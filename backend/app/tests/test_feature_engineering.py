@@ -33,6 +33,7 @@ from app.ml.terrain_dem import TERRAIN_DEV_FIXTURE
 # Helper: build test rainfall data
 # ---------------------------------------------------------------------------
 
+
 def _make_rainfall(
     station_id: str = "S1",
     station_lat: float = 27.30,
@@ -46,28 +47,45 @@ def _make_rainfall(
         daily_pattern = list(range(1, n_days + 1))
     records = []
     for i in range(n_days):
-        records.append({
-            "station_id": station_id,
-            "station_lat": station_lat,
-            "station_lon": station_lon,
-            "reading_date": start_date + timedelta(days=i),
-            "rainfall_mm": float(daily_pattern[i % len(daily_pattern)]),
-        })
+        records.append(
+            {
+                "station_id": station_id,
+                "station_lat": station_lat,
+                "station_lon": station_lon,
+                "reading_date": start_date + timedelta(days=i),
+                "rainfall_mm": float(daily_pattern[i % len(daily_pattern)]),
+            }
+        )
     return records
 
 
 def _make_events() -> list[dict]:
     """Create test landslide events spanning a range of dates."""
     return [
-        {"event_id": "E1", "event_date": date(2022, 6, 1),
-         "latitude": 27.30, "longitude": 88.60, "severity": "Moderate",
-         "source_reference": "test"},
-        {"event_id": "E2", "event_date": date(2022, 6, 15),
-         "latitude": 27.35, "longitude": 88.65, "severity": "High",
-         "source_reference": "test"},
-        {"event_id": "E3", "event_date": date(2022, 7, 1),
-         "latitude": 27.40, "longitude": 88.70, "severity": "Severe",
-         "source_reference": "test"},
+        {
+            "event_id": "E1",
+            "event_date": date(2022, 6, 1),
+            "latitude": 27.30,
+            "longitude": 88.60,
+            "severity": "Moderate",
+            "source_reference": "test",
+        },
+        {
+            "event_id": "E2",
+            "event_date": date(2022, 6, 15),
+            "latitude": 27.35,
+            "longitude": 88.65,
+            "severity": "High",
+            "source_reference": "test",
+        },
+        {
+            "event_id": "E3",
+            "event_date": date(2022, 7, 1),
+            "latitude": 27.40,
+            "longitude": 88.70,
+            "severity": "Severe",
+            "source_reference": "test",
+        },
     ]
 
 
@@ -75,17 +93,25 @@ def _make_events() -> list[dict]:
 # 1. Feature registry
 # ============================================================================
 
+
 class TestFeatureRegistry:
     def test_registry_not_empty(self):
         assert len(FEATURE_REGISTRY) > 0
 
     def test_all_expected_features_registered(self):
         expected = [
-            "rainfall_current_mm", "rainfall_3d_mm", "rainfall_7d_mm",
-            "rainfall_15d_mm", "rainfall_30d_mm",
-            "slope_angle_deg", "slope_aspect_deg", "elevation_m",
-            "distance_nearest_landslide_km", "n_landslides_within_5km",
-            "lulc_category", "road_distance_km",
+            "rainfall_current_mm",
+            "rainfall_3d_mm",
+            "rainfall_7d_mm",
+            "rainfall_15d_mm",
+            "rainfall_30d_mm",
+            "slope_angle_deg",
+            "slope_aspect_deg",
+            "elevation_m",
+            "distance_nearest_landslide_km",
+            "n_landslides_within_5km",
+            "lulc_category",
+            "road_distance_km",
         ]
         for name in expected:
             assert name in FEATURE_REGISTRY, f"Missing: {name}"
@@ -98,7 +124,11 @@ class TestFeatureRegistry:
             assert defn.calculation_method
             assert defn.missing_value_handler
             assert defn.leakage_notes
-            assert defn.data_availability in ("AVAILABLE", "DEV_FIXTURE_ONLY", "UNAVAILABLE")
+            assert defn.data_availability in (
+                "AVAILABLE",
+                "DEV_FIXTURE_ONLY",
+                "UNAVAILABLE",
+            )
 
     def test_get_feature_dictionary(self):
         d = get_feature_dictionary()
@@ -115,6 +145,7 @@ class TestFeatureRegistry:
 # ============================================================================
 # 2. Rainfall features
 # ============================================================================
+
 
 class TestRainfallFeatures:
     def test_current_rainfall_excludes_sample_date(self):
@@ -164,15 +195,25 @@ class TestRainfallFeatures:
         records = _make_rainfall()
         transformer = RainfallFeatureTransformer(records)
         features = transformer.compute(27.30, 88.60, date(2022, 7, 10))
-        for key in ["rainfall_current_mm", "rainfall_3d_mm", "rainfall_7d_mm",
-                     "rainfall_15d_mm", "rainfall_30d_mm"]:
+        for key in [
+            "rainfall_current_mm",
+            "rainfall_3d_mm",
+            "rainfall_7d_mm",
+            "rainfall_15d_mm",
+            "rainfall_30d_mm",
+        ]:
             assert key in features
 
     def test_empty_rainfall_returns_zeros(self):
         transformer = RainfallFeatureTransformer([])
         features = transformer.compute(27.30, 88.60, date(2022, 7, 10))
-        for key in ["rainfall_current_mm", "rainfall_3d_mm", "rainfall_7d_mm",
-                     "rainfall_15d_mm", "rainfall_30d_mm"]:
+        for key in [
+            "rainfall_current_mm",
+            "rainfall_3d_mm",
+            "rainfall_7d_mm",
+            "rainfall_15d_mm",
+            "rainfall_30d_mm",
+        ]:
             assert features[key] == 0.0
 
     def test_values_are_floats(self):
@@ -186,6 +227,7 @@ class TestRainfallFeatures:
 # ============================================================================
 # 3. Terrain features
 # ============================================================================
+
 
 class TestTerrainFeatures:
     def test_returns_fixture_values(self):
@@ -222,14 +264,23 @@ class TestTerrainFeatures:
 # 4. Proximity features (LEAKAGE CRITICAL)
 # ============================================================================
 
+
 class TestProximityFeatures:
     def test_only_uses_past_events(self):
         """Events AFTER sample_date must not affect proximity."""
         events = [
-            {"event_id": "E1", "event_date": date(2022, 6, 1),
-             "latitude": 27.30, "longitude": 88.60},
-            {"event_id": "E2", "event_date": date(2022, 8, 1),
-             "latitude": 27.31, "longitude": 88.61},  # future event
+            {
+                "event_id": "E1",
+                "event_date": date(2022, 6, 1),
+                "latitude": 27.30,
+                "longitude": 88.60,
+            },
+            {
+                "event_id": "E2",
+                "event_date": date(2022, 8, 1),
+                "latitude": 27.31,
+                "longitude": 88.61,
+            },  # future event
         ]
         transformer = ProximityFeatureTransformer(events)
 
@@ -244,7 +295,9 @@ class TestProximityFeatures:
 
         # Compute proximity for E1's cell, excluding E1 itself
         features = transformer.compute(
-            27.30, 88.60, date(2022, 7, 1),
+            27.30,
+            88.60,
+            date(2022, 7, 1),
             exclude_event_id="E1",
         )
         # E2 is at 27.35, 88.65 → distance ~6.3km
@@ -262,21 +315,31 @@ class TestProximityFeatures:
         # Without exclusion: distance = 0 (E1 is at same location)
         # With exclusion: distance > 0
         features_excluded = transformer.compute(
-            27.30, 88.60, date(2022, 7, 15),
+            27.30,
+            88.60,
+            date(2022, 7, 15),
             exclude_event_id="E1",
         )
         features_not_excluded = transformer.compute(
-            27.30, 88.60, date(2022, 7, 15),
+            27.30,
+            88.60,
+            date(2022, 7, 15),
             exclude_event_id=None,
         )
         # Excluded should be farther (E1 excluded, nearest is E2)
-        assert features_excluded["distance_nearest_landslide_km"] > \
-               features_not_excluded["distance_nearest_landslide_km"]
+        assert (
+            features_excluded["distance_nearest_landslide_km"]
+            > features_not_excluded["distance_nearest_landslide_km"]
+        )
 
     def test_no_past_events_returns_default(self):
         events = [
-            {"event_id": "E1", "event_date": date(2023, 1, 1),
-             "latitude": 27.30, "longitude": 88.60},
+            {
+                "event_id": "E1",
+                "event_date": date(2023, 1, 1),
+                "latitude": 27.30,
+                "longitude": 88.60,
+            },
         ]
         transformer = ProximityFeatureTransformer(events)
 
@@ -287,12 +350,24 @@ class TestProximityFeatures:
 
     def test_count_within_5km(self):
         events = [
-            {"event_id": "E1", "event_date": date(2022, 6, 1),
-             "latitude": 27.30, "longitude": 88.60},
-            {"event_id": "E2", "event_date": date(2022, 6, 15),
-             "latitude": 27.305, "longitude": 88.605},  # ~0.7km away
-            {"event_id": "E3", "event_date": date(2022, 7, 1),
-             "latitude": 27.40, "longitude": 88.70},  # ~12km away
+            {
+                "event_id": "E1",
+                "event_date": date(2022, 6, 1),
+                "latitude": 27.30,
+                "longitude": 88.60,
+            },
+            {
+                "event_id": "E2",
+                "event_date": date(2022, 6, 15),
+                "latitude": 27.305,
+                "longitude": 88.605,
+            },  # ~0.7km away
+            {
+                "event_id": "E3",
+                "event_date": date(2022, 7, 1),
+                "latitude": 27.40,
+                "longitude": 88.70,
+            },  # ~12km away
         ]
         transformer = ProximityFeatureTransformer(events)
 
@@ -303,13 +378,17 @@ class TestProximityFeatures:
     def test_symmetry(self):
         """Distance should be symmetric (A→B = B→A)."""
         events = [
-            {"event_id": "E1", "event_date": date(2022, 6, 1),
-             "latitude": 27.30, "longitude": 88.60},
+            {
+                "event_id": "E1",
+                "event_date": date(2022, 6, 1),
+                "latitude": 27.30,
+                "longitude": 88.60,
+            },
         ]
         transformer = ProximityFeatureTransformer(events)
 
         f1 = transformer.compute(27.35, 88.65, date(2022, 7, 1))
-        f2 = transformer.compute(27.30, 88.60, date(2022, 7, 15))
+        transformer.compute(27.30, 88.60, date(2022, 7, 15))
         # E1 is at 27.30, 88.60 → for f2, E1 is the only event and is excluded
         # For f1, E1 is the nearest past event
         assert f1["distance_nearest_landslide_km"] > 0
@@ -318,6 +397,7 @@ class TestProximityFeatures:
 # ============================================================================
 # 5. Land cover and road stubs
 # ============================================================================
+
 
 class TestLandCoverStub:
     def test_returns_zero(self):
@@ -347,6 +427,7 @@ class TestRoadStub:
 # 6. Composite FeatureTransformer
 # ============================================================================
 
+
 class TestFeatureTransformer:
     def test_compute_all_returns_all_features(self):
         records = _make_rainfall()
@@ -363,11 +444,18 @@ class TestFeatureTransformer:
             sample_date=date(2022, 7, 15),
         )
         expected_keys = [
-            "rainfall_current_mm", "rainfall_3d_mm", "rainfall_7d_mm",
-            "rainfall_15d_mm", "rainfall_30d_mm",
-            "slope_angle_deg", "slope_aspect_deg", "elevation_m",
-            "distance_nearest_landslide_km", "n_landslides_within_5km",
-            "lulc_category", "road_distance_km",
+            "rainfall_current_mm",
+            "rainfall_3d_mm",
+            "rainfall_7d_mm",
+            "rainfall_15d_mm",
+            "rainfall_30d_mm",
+            "slope_angle_deg",
+            "slope_aspect_deg",
+            "elevation_m",
+            "distance_nearest_landslide_km",
+            "n_landslides_within_5km",
+            "lulc_category",
+            "road_distance_km",
         ]
         for key in expected_keys:
             assert key in features, f"Missing feature: {key}"
@@ -438,39 +526,45 @@ class TestFeatureTransformer:
 # 7. End-to-end with dev fixtures
 # ============================================================================
 
+
 class TestEndToEndFeatures:
     def test_full_pipeline(self):
         """Run the complete feature pipeline with dev fixtures."""
-        from datetime import timedelta
         import csv
         from pathlib import Path
 
-        fixture_dir = Path(__file__).resolve().parent.parent.parent.parent / "data" / "reference"
+        fixture_dir = (
+            Path(__file__).resolve().parent.parent.parent.parent / "data" / "reference"
+        )
         raw_dir = Path(__file__).resolve().parent.parent.parent.parent / "data" / "raw"
 
         # Load dev fixtures
         events = []
         with open(fixture_dir / "landslide_events_dev_fixture.csv") as f:
             for row in csv.DictReader(f):
-                events.append({
-                    "event_id": row["event_id"],
-                    "event_date": date.fromisoformat(row["event_date"]),
-                    "latitude": float(row["latitude"]),
-                    "longitude": float(row["longitude"]),
-                    "severity": row.get("severity", "Unknown"),
-                    "source_reference": row.get("source_reference", ""),
-                })
+                events.append(
+                    {
+                        "event_id": row["event_id"],
+                        "event_date": date.fromisoformat(row["event_date"]),
+                        "latitude": float(row["latitude"]),
+                        "longitude": float(row["longitude"]),
+                        "severity": row.get("severity", "Unknown"),
+                        "source_reference": row.get("source_reference", ""),
+                    }
+                )
 
         rainfall = []
         with open(raw_dir / "rainfall_dev_fixture.csv") as f:
             for row in csv.DictReader(f):
-                rainfall.append({
-                    "station_id": row["station_id"],
-                    "station_lat": float(row["station_lat"]),
-                    "station_lon": float(row["station_lon"]),
-                    "reading_date": date.fromisoformat(row["reading_date"]),
-                    "rainfall_mm": float(row["rainfall_mm"]),
-                })
+                rainfall.append(
+                    {
+                        "station_id": row["station_id"],
+                        "station_lat": float(row["station_lat"]),
+                        "station_lon": float(row["station_lon"]),
+                        "reading_date": date.fromisoformat(row["reading_date"]),
+                        "rainfall_mm": float(row["rainfall_mm"]),
+                    }
+                )
 
         transformer = FeatureTransformer(
             rainfall_records=rainfall,
@@ -512,18 +606,27 @@ class TestEndToEndFeatures:
         dataset = [
             {
                 "grid_cell_id": "27.3200N_88.6100E",
-                "centroid_lat": 27.32, "centroid_lon": 88.61,
-                "sample_date": "2022-07-15", "event_id": "E1", "label": 1,
+                "centroid_lat": 27.32,
+                "centroid_lon": 88.61,
+                "sample_date": "2022-07-15",
+                "event_id": "E1",
+                "label": 1,
             },
             {
                 "grid_cell_id": "27.3300N_88.6200E",
-                "centroid_lat": 27.33, "centroid_lon": 88.62,
-                "sample_date": "2022-07-15", "event_id": None, "label": 0,
+                "centroid_lat": 27.33,
+                "centroid_lon": 88.62,
+                "sample_date": "2022-07-15",
+                "event_id": None,
+                "label": 0,
             },
             {
                 "grid_cell_id": "27.3400N_88.6300E",
-                "centroid_lat": 27.34, "centroid_lon": 88.63,
-                "sample_date": "2022-06-20", "event_id": None, "label": 0,
+                "centroid_lat": 27.34,
+                "centroid_lon": 88.63,
+                "sample_date": "2022-06-20",
+                "event_id": None,
+                "label": 0,
             },
         ]
 
@@ -538,17 +641,22 @@ class TestEndToEndFeatures:
 # 8. Leakage detection tests
 # ============================================================================
 
+
 class TestLeakageDetection:
     def test_rainfall_excludes_sample_date(self):
         """All rainfall features must not use data from sample_date onward."""
         # Day-by-day rainfall with known values
         records = []
         for i in range(30):
-            records.append({
-                "station_id": "S1", "station_lat": 27.3, "station_lon": 88.6,
-                "reading_date": date(2022, 7, 1) + timedelta(days=i),
-                "rainfall_mm": 100.0 if i == 9 else 1.0,  # spike on July 10
-            })
+            records.append(
+                {
+                    "station_id": "S1",
+                    "station_lat": 27.3,
+                    "station_lon": 88.6,
+                    "reading_date": date(2022, 7, 1) + timedelta(days=i),
+                    "rainfall_mm": 100.0 if i == 9 else 1.0,  # spike on July 10
+                }
+            )
         transformer = RainfallFeatureTransformer(records)
 
         # sample_date = July 10: July 10 rainfall (100.0) must NOT appear
@@ -562,8 +670,12 @@ class TestLeakageDetection:
 
     def test_proximity_excludes_future_events(self):
         events = [
-            {"event_id": "E1", "event_date": date(2022, 8, 1),
-             "latitude": 27.30, "longitude": 88.60},
+            {
+                "event_id": "E1",
+                "event_date": date(2022, 8, 1),
+                "latitude": 27.30,
+                "longitude": 88.60,
+            },
         ]
         transformer = ProximityFeatureTransformer(events)
 
@@ -574,14 +686,20 @@ class TestLeakageDetection:
     def test_proximity_excludes_target_event(self):
         """Target event must never be used for its own sample's proximity."""
         events = [
-            {"event_id": "E1", "event_date": date(2022, 6, 1),
-             "latitude": 27.30, "longitude": 88.60},
+            {
+                "event_id": "E1",
+                "event_date": date(2022, 6, 1),
+                "latitude": 27.30,
+                "longitude": 88.60,
+            },
         ]
         transformer = ProximityFeatureTransformer(events)
 
         # E1 is at 27.30, 88.60 — compute proximity for same cell, excluding E1
         features = transformer.compute(
-            27.30, 88.60, date(2022, 7, 1),
+            27.30,
+            88.60,
+            date(2022, 7, 1),
             exclude_event_id="E1",
         )
         # Should NOT be 0 (E1 excluded, no other events)
@@ -602,16 +720,27 @@ class TestLeakageDetection:
     def test_train_test_no_feature_leakage(self):
         """Features for train set should not depend on test-set events."""
         events = [
-            {"event_id": "E1", "event_date": date(2022, 6, 1),
-             "latitude": 27.30, "longitude": 88.60},
-            {"event_id": "E2", "event_date": date(2023, 6, 1),  # test set
-             "latitude": 27.30, "longitude": 88.60},
+            {
+                "event_id": "E1",
+                "event_date": date(2022, 6, 1),
+                "latitude": 27.30,
+                "longitude": 88.60,
+            },
+            {
+                "event_id": "E2",
+                "event_date": date(2023, 6, 1),  # test set
+                "latitude": 27.30,
+                "longitude": 88.60,
+            },
         ]
         transformer = ProximityFeatureTransformer(events)
 
         # Train sample (before split date)
         train_features = transformer.compute(
-            27.30, 88.60, date(2022, 7, 1), exclude_event_id="E1",
+            27.30,
+            88.60,
+            date(2022, 7, 1),
+            exclude_event_id="E1",
         )
         # E2 is in the future → must not affect train proximity
         assert train_features["distance_nearest_landslide_km"] == 999.0

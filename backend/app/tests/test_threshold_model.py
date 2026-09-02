@@ -13,8 +13,6 @@ Test categories:
     7. Type safety
 """
 
-import math
-
 import pytest
 
 from app.ml.threshold_model import (
@@ -36,6 +34,7 @@ from app.ml.threshold_model import (
 # ============================================================================
 # 1. NE Himalaya Moisture Threshold: E = -11.10 + 0.62 * D
 # ============================================================================
+
 
 class TestNeHimalayaMoistureThreshold:
     """Tests for the NE Himalaya cumulative rainfall threshold.
@@ -119,6 +118,7 @@ class TestNeHimalayaMoistureThreshold:
 # 2. Sikkim Intensity-Duration Threshold: I = 43.26 * D^(-0.78)
 # ============================================================================
 
+
 class TestSikkimIntensityDurationThreshold:
     """Tests for the Sikkim I-D threshold.
 
@@ -134,27 +134,37 @@ class TestSikkimIntensityDurationThreshold:
     def test_equation_at_7_days(self):
         # I = 43.26 * 7^(-0.78)
         expected = 43.26 * (7 ** (-0.78))
-        assert sikkim_intensity_duration_threshold(7) == pytest.approx(expected, abs=0.01)
+        assert sikkim_intensity_duration_threshold(7) == pytest.approx(
+            expected, abs=0.01
+        )
 
     def test_equation_at_30_days(self):
         # I = 43.26 * 30^(-0.78)
         expected = 43.26 * (30 ** (-0.78))
-        assert sikkim_intensity_duration_threshold(30) == pytest.approx(expected, abs=0.01)
+        assert sikkim_intensity_duration_threshold(30) == pytest.approx(
+            expected, abs=0.01
+        )
 
     def test_equation_at_05_days(self):
         # I = 43.26 * 0.5^(-0.78)
         expected = 43.26 * (0.5 ** (-0.78))
-        assert sikkim_intensity_duration_threshold(0.5) == pytest.approx(expected, abs=0.01)
+        assert sikkim_intensity_duration_threshold(0.5) == pytest.approx(
+            expected, abs=0.01
+        )
 
     def test_equation_at_90_days(self):
         # I = 43.26 * 90^(-0.78)
         expected = 43.26 * (90 ** (-0.78))
-        assert sikkim_intensity_duration_threshold(90) == pytest.approx(expected, abs=0.01)
+        assert sikkim_intensity_duration_threshold(90) == pytest.approx(
+            expected, abs=0.01
+        )
 
     def test_equation_at_01_days(self):
         # I = 43.26 * 0.1^(-0.78)
         expected = 43.26 * (0.1 ** (-0.78))
-        assert sikkim_intensity_duration_threshold(0.1) == pytest.approx(expected, abs=0.01)
+        assert sikkim_intensity_duration_threshold(0.1) == pytest.approx(
+            expected, abs=0.01
+        )
 
     def test_boundary_zero_raises(self):
         with pytest.raises(ValueError, match="d_days must be >"):
@@ -175,6 +185,7 @@ class TestSikkimIntensityDurationThreshold:
 # ============================================================================
 # 3. Threshold Exceedance Checking
 # ============================================================================
+
 
 class TestCheckThresholdExceedance:
     """Tests for the unified threshold exceedance checker."""
@@ -295,6 +306,7 @@ class TestCheckThresholdExceedance:
 # 4. Explanation Generation
 # ============================================================================
 
+
 class TestFormatExplanation:
     """Tests for human-readable explanation output."""
 
@@ -354,6 +366,7 @@ class TestFormatExplanation:
         # Note: this is outside the NE-Himalaya domain (24 < D < 1440),
         # so we test with a valid value and verify the format logic directly.
         from app.ml.threshold_model import _format_duration
+
         assert _format_duration(12) == "12-hour"
         assert _format_duration(48) == "2-day"
         assert _format_duration(72) == "3-day"
@@ -369,6 +382,7 @@ class TestFormatExplanation:
 # ============================================================================
 # 5. Mathematical Properties
 # ============================================================================
+
 
 class TestMathematicalProperties:
     """Verify mathematical invariants of the threshold equations."""
@@ -437,6 +451,7 @@ class TestMathematicalProperties:
 # 6. Safe Wrappers
 # ============================================================================
 
+
 class TestSafeWrappers:
     """Tests for the safe wrapper functions that return None on error."""
 
@@ -465,6 +480,7 @@ class TestSafeWrappers:
 # ============================================================================
 # 7. Type Safety
 # ============================================================================
+
 
 class TestTypeSafety:
     """Verify functions handle incorrect types gracefully."""
@@ -497,6 +513,7 @@ class TestTypeSafety:
 # ============================================================================
 # 8. Integration: Threshold → Exceedance → Explanation Pipeline
 # ============================================================================
+
 
 class TestThresholdToExplanationPipeline:
     """End-to-end test: threshold → exceedance → explanation.
@@ -550,6 +567,7 @@ class TestThresholdToExplanationPipeline:
 # ============================================================================
 # 9. Constants verification
 # ============================================================================
+
 
 class TestConstants:
     """Verify the module-level constants match the paper's domain."""

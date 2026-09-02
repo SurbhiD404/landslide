@@ -23,7 +23,6 @@ from app.ml.data_pipeline import (
     assemble_dataset,
     check_leakage,
     create_grid_cells,
-    get_class_weights,
     label_positive_samples,
     load_landslide_inventory,
     load_rainfall_timeseries,
@@ -32,17 +31,19 @@ from app.ml.data_pipeline import (
     save_dataset,
     save_metadata,
     split_train_test,
-    walk_forward_split,
 )
 from app.ml.feature_engineering import RainfallFeatureTransformer
 
-FIXTURE_DIR = Path(__file__).resolve().parent.parent.parent.parent / "data" / "reference"
+FIXTURE_DIR = (
+    Path(__file__).resolve().parent.parent.parent.parent / "data" / "reference"
+)
 RAW_FIXTURE_DIR = Path(__file__).resolve().parent.parent.parent.parent / "data" / "raw"
 
 
 # ============================================================================
 # 1. Configuration
 # ============================================================================
+
 
 class TestPipelineConfig:
     def test_default_config(self):
@@ -72,6 +73,7 @@ class TestPipelineConfig:
 # 2. Haversine distance
 # ============================================================================
 
+
 class TestHaversine:
     def test_same_point(self):
         assert _haversine_km(27.3, 88.6, 27.3, 88.6) == pytest.approx(0.0, abs=0.01)
@@ -90,6 +92,7 @@ class TestHaversine:
 # ============================================================================
 # 3. Grid cell creation
 # ============================================================================
+
 
 class TestCreateGridCells:
     def test_basic_grid(self):
@@ -119,6 +122,7 @@ class TestCreateGridCells:
 # 4. Point-in-cell
 # ============================================================================
 
+
 class TestPointInCell:
     def test_center_is_inside(self):
         cell = {"grid_cell_id": "test", "centroid_lat": 27.0, "centroid_lon": 88.0}
@@ -137,6 +141,7 @@ class TestPointInCell:
 # ============================================================================
 # 5. Data loading
 # ============================================================================
+
 
 class TestLoadLandslideInventory:
     def test_load_dev_fixture(self):
@@ -185,6 +190,7 @@ class TestLoadStaticFeatures:
 # 6. Positive labeling
 # ============================================================================
 
+
 class TestLabelPositiveSamples:
     def _make_test_data(self):
         cells = [
@@ -193,12 +199,22 @@ class TestLabelPositiveSamples:
             {"grid_cell_id": "C3", "centroid_lat": 27.40, "centroid_lon": 88.70},
         ]
         events = [
-            {"event_id": "E1", "event_date": date(2022, 7, 15),
-             "latitude": 27.30, "longitude": 88.60, "severity": "Moderate",
-             "source_reference": "test"},
-            {"event_id": "E2", "event_date": date(2022, 8, 1),
-             "latitude": 27.35, "longitude": 88.65, "severity": "High",
-             "source_reference": "test"},
+            {
+                "event_id": "E1",
+                "event_date": date(2022, 7, 15),
+                "latitude": 27.30,
+                "longitude": 88.60,
+                "severity": "Moderate",
+                "source_reference": "test",
+            },
+            {
+                "event_id": "E2",
+                "event_date": date(2022, 8, 1),
+                "latitude": 27.35,
+                "longitude": 88.65,
+                "severity": "High",
+                "source_reference": "test",
+            },
         ]
         return cells, events
 
@@ -247,34 +263,44 @@ class TestLabelPositiveSamples:
 # 7. Negative sampling
 # ============================================================================
 
+
 class TestSampleNegativeSamples:
     def _make_test_data(self):
         # Create a small grid
         cells = []
         for lat_i in range(10):
             for lon_i in range(10):
-                cells.append({
-                    "grid_cell_id": f"C{lat_i}_{lon_i}",
-                    "centroid_lat": 27.30 + lat_i * 0.01,
-                    "centroid_lon": 88.60 + lon_i * 0.01,
-                })
+                cells.append(
+                    {
+                        "grid_cell_id": f"C{lat_i}_{lon_i}",
+                        "centroid_lat": 27.30 + lat_i * 0.01,
+                        "centroid_lon": 88.60 + lon_i * 0.01,
+                    }
+                )
         events = [
-            {"event_id": "E1", "event_date": date(2022, 7, 15),
-             "latitude": 27.30, "longitude": 88.60, "severity": "Moderate",
-             "source_reference": "test"},
+            {
+                "event_id": "E1",
+                "event_date": date(2022, 7, 15),
+                "latitude": 27.30,
+                "longitude": 88.60,
+                "severity": "Moderate",
+                "source_reference": "test",
+            },
         ]
-        positives = [{
-            "grid_cell_id": "C0_0",
-            "centroid_lat": 27.30,
-            "centroid_lon": 88.60,
-            "sample_date": date(2022, 7, 15),
-            "event_date": date(2022, 7, 15),
-            "label": 1,
-            "risk_level": "High",
-            "event_id": "E1",
-            "source_reference": "test",
-            "data_origin": "DEV_FIXTURE",
-        }]
+        positives = [
+            {
+                "grid_cell_id": "C0_0",
+                "centroid_lat": 27.30,
+                "centroid_lon": 88.60,
+                "sample_date": date(2022, 7, 15),
+                "event_date": date(2022, 7, 15),
+                "label": 1,
+                "risk_level": "High",
+                "event_id": "E1",
+                "source_reference": "test",
+                "data_origin": "DEV_FIXTURE",
+            }
+        ]
         return cells, events, positives
 
     def test_negative_count_matches_ratio(self):
@@ -309,18 +335,21 @@ class TestSampleNegativeSamples:
 # 8. Rainfall feature computation
 # ============================================================================
 
+
 class TestComputeAntecedentRainfall:
     def _make_rainfall(self):
         records = []
         base = date(2022, 7, 1)
         for i in range(30):
-            records.append({
-                "station_id": "S1",
-                "station_lat": 27.30,
-                "station_lon": 88.60,
-                "reading_date": base + timedelta(days=i),
-                "rainfall_mm": float(i + 1),  # 1, 2, 3, ... 30
-            })
+            records.append(
+                {
+                    "station_id": "S1",
+                    "station_lat": 27.30,
+                    "station_lon": 88.60,
+                    "reading_date": base + timedelta(days=i),
+                    "rainfall_mm": float(i + 1),  # 1, 2, 3, ... 30
+                }
+            )
         return records
 
     def test_basic_computation(self):
@@ -348,7 +377,9 @@ class TestComputeAntecedentRainfall:
 
     def test_no_nearby_stations_returns_zeros(self):
         records = self._make_rainfall()
-        transformer = RainfallFeatureTransformer(records, windows=[3], max_station_distance_km=1.0)
+        transformer = RainfallFeatureTransformer(
+            records, windows=[3], max_station_distance_km=1.0
+        )
         features = transformer.compute(29.0, 90.0, date(2022, 7, 10))
         assert features["rainfall_3d_mm"] == 0.0
 
@@ -356,6 +387,7 @@ class TestComputeAntecedentRainfall:
 # ============================================================================
 # 9. Severity mapping
 # ============================================================================
+
 
 class TestSeverityToRisk:
     def test_known_severities(self):
@@ -372,6 +404,7 @@ class TestSeverityToRisk:
 # ============================================================================
 # 10. Slope binning
 # ============================================================================
+
 
 class TestSlopeBinning:
     def test_slope_to_bin(self):
@@ -398,6 +431,7 @@ class TestSlopeBinning:
 # ============================================================================
 # 11. Train/test split
 # ============================================================================
+
 
 class TestTrainTestSplit:
     def test_time_based_split(self):
@@ -432,13 +466,24 @@ class TestTrainTestSplit:
 # 12. Leakage checks
 # ============================================================================
 
+
 class TestCheckLeakage:
     def test_clean_split_passes(self):
         train = [
-            {"sample_id": "A", "event_id": "E1", "grid_cell_id": "C1", "sample_date": "2022-07-01"},
+            {
+                "sample_id": "A",
+                "event_id": "E1",
+                "grid_cell_id": "C1",
+                "sample_date": "2022-07-01",
+            },
         ]
         test = [
-            {"sample_id": "B", "event_id": "E2", "grid_cell_id": "C2", "sample_date": "2023-06-01"},
+            {
+                "sample_id": "B",
+                "event_id": "E2",
+                "grid_cell_id": "C2",
+                "sample_date": "2023-06-01",
+            },
         ]
         result = check_leakage(train, test)
         assert result["no_sample_id_overlap"]["passed"] is True
@@ -446,14 +491,42 @@ class TestCheckLeakage:
         assert result["no_future_in_train"]["passed"] is True
 
     def test_overlapping_sample_ids_fails(self):
-        train = [{"sample_id": "A", "event_id": None, "grid_cell_id": "C1", "sample_date": "2022-07-01"}]
-        test = [{"sample_id": "A", "event_id": None, "grid_cell_id": "C2", "sample_date": "2023-06-01"}]
+        train = [
+            {
+                "sample_id": "A",
+                "event_id": None,
+                "grid_cell_id": "C1",
+                "sample_date": "2022-07-01",
+            }
+        ]
+        test = [
+            {
+                "sample_id": "A",
+                "event_id": None,
+                "grid_cell_id": "C2",
+                "sample_date": "2023-06-01",
+            }
+        ]
         result = check_leakage(train, test)
         assert result["no_sample_id_overlap"]["passed"] is False
 
     def test_overlapping_event_ids_fails(self):
-        train = [{"sample_id": "A", "event_id": "E1", "grid_cell_id": "C1", "sample_date": "2022-07-01"}]
-        test = [{"sample_id": "B", "event_id": "E1", "grid_cell_id": "C1", "sample_date": "2023-06-01"}]
+        train = [
+            {
+                "sample_id": "A",
+                "event_id": "E1",
+                "grid_cell_id": "C1",
+                "sample_date": "2022-07-01",
+            }
+        ]
+        test = [
+            {
+                "sample_id": "B",
+                "event_id": "E1",
+                "grid_cell_id": "C1",
+                "sample_date": "2023-06-01",
+            }
+        ]
         result = check_leakage(train, test)
         assert result["no_event_id_overlap"]["passed"] is False
 
@@ -462,20 +535,37 @@ class TestCheckLeakage:
 # 13. Dataset assembly
 # ============================================================================
 
+
 class TestAssembleDataset:
     def test_assembly_produces_records(self):
-        positives = [{
-            "grid_cell_id": "C1", "centroid_lat": 27.3, "centroid_lon": 88.6,
-            "sample_date": date(2022, 7, 15), "event_date": date(2022, 7, 15),
-            "label": 1, "risk_level": "High", "event_id": "E1",
-            "source_reference": "test", "data_origin": "DEV_FIXTURE",
-        }]
-        negatives = [{
-            "grid_cell_id": "C2", "centroid_lat": 27.35, "centroid_lon": 88.65,
-            "sample_date": date(2022, 7, 15), "event_date": None,
-            "label": 0, "risk_level": "Low", "event_id": None,
-            "source_reference": "", "data_origin": "DEV_FIXTURE",
-        }]
+        positives = [
+            {
+                "grid_cell_id": "C1",
+                "centroid_lat": 27.3,
+                "centroid_lon": 88.6,
+                "sample_date": date(2022, 7, 15),
+                "event_date": date(2022, 7, 15),
+                "label": 1,
+                "risk_level": "High",
+                "event_id": "E1",
+                "source_reference": "test",
+                "data_origin": "DEV_FIXTURE",
+            }
+        ]
+        negatives = [
+            {
+                "grid_cell_id": "C2",
+                "centroid_lat": 27.35,
+                "centroid_lon": 88.65,
+                "sample_date": date(2022, 7, 15),
+                "event_date": None,
+                "label": 0,
+                "risk_level": "Low",
+                "event_id": None,
+                "source_reference": "",
+                "data_origin": "DEV_FIXTURE",
+            }
+        ]
         rainfall = []
         config = PipelineConfig()
         dataset = assemble_dataset(positives, negatives, rainfall, {}, config)
@@ -484,26 +574,54 @@ class TestAssembleDataset:
         assert dataset[1]["label"] == 0
 
     def test_assembly_has_all_schema_fields(self):
-        positives = [{
-            "grid_cell_id": "C1", "centroid_lat": 27.3, "centroid_lon": 88.6,
-            "sample_date": date(2022, 7, 15), "event_date": date(2022, 7, 15),
-            "label": 1, "risk_level": "High", "event_id": "E1",
-            "source_reference": "test", "data_origin": "DEV_FIXTURE",
-        }]
+        positives = [
+            {
+                "grid_cell_id": "C1",
+                "centroid_lat": 27.3,
+                "centroid_lon": 88.6,
+                "sample_date": date(2022, 7, 15),
+                "event_date": date(2022, 7, 15),
+                "label": 1,
+                "risk_level": "High",
+                "event_id": "E1",
+                "source_reference": "test",
+                "data_origin": "DEV_FIXTURE",
+            }
+        ]
         # Provide minimal rainfall data so features get computed
-        rainfall = [{
-            "station_id": "S1", "station_lat": 27.3, "station_lon": 88.6,
-            "reading_date": date(2022, 7, 14), "rainfall_mm": 10.0,
-        }]
+        rainfall = [
+            {
+                "station_id": "S1",
+                "station_lat": 27.3,
+                "station_lon": 88.6,
+                "reading_date": date(2022, 7, 14),
+                "rainfall_mm": 10.0,
+            }
+        ]
         config = PipelineConfig(lead_time_days=1)
         dataset = assemble_dataset(positives, [], rainfall, {}, config)
         required = [
-            "sample_id", "grid_cell_id", "centroid_lat", "centroid_lon",
-            "sample_date", "event_date", "label", "risk_level", "event_id",
-            "source_reference", "data_origin",
-            "slope_angle_deg", "slope_aspect_deg", "elevation_m",
-            "lulc_category", "road_distance_km",
-            "rainfall_current_mm", "rainfall_3d_mm", "rainfall_7d_mm", "rainfall_15d_mm", "rainfall_30d_mm",
+            "sample_id",
+            "grid_cell_id",
+            "centroid_lat",
+            "centroid_lon",
+            "sample_date",
+            "event_date",
+            "label",
+            "risk_level",
+            "event_id",
+            "source_reference",
+            "data_origin",
+            "slope_angle_deg",
+            "slope_aspect_deg",
+            "elevation_m",
+            "lulc_category",
+            "road_distance_km",
+            "rainfall_current_mm",
+            "rainfall_3d_mm",
+            "rainfall_7d_mm",
+            "rainfall_15d_mm",
+            "rainfall_30d_mm",
         ]
         for field in required:
             assert field in dataset[0], f"Missing field: {field}"
@@ -513,20 +631,31 @@ class TestAssembleDataset:
 # 14. Save/load roundtrip
 # ============================================================================
 
+
 class TestSaveDataset:
     def test_save_and_load(self, tmp_path):
         dataset = [
             {
-                "sample_id": "C1_2022-07-15", "grid_cell_id": "C1",
-                "centroid_lat": 27.3, "centroid_lon": 88.6,
-                "sample_date": "2022-07-15", "event_date": "2022-07-15",
-                "label": 1, "risk_level": "High", "event_id": "E1",
-                "source_reference": "test", "data_origin": "DEV_FIXTURE",
-                "slope_angle_deg": 25.0, "slope_aspect_deg": 180.0,
-                "elevation_m": 1500.0, "lulc_category": 3,
+                "sample_id": "C1_2022-07-15",
+                "grid_cell_id": "C1",
+                "centroid_lat": 27.3,
+                "centroid_lon": 88.6,
+                "sample_date": "2022-07-15",
+                "event_date": "2022-07-15",
+                "label": 1,
+                "risk_level": "High",
+                "event_id": "E1",
+                "source_reference": "test",
+                "data_origin": "DEV_FIXTURE",
+                "slope_angle_deg": 25.0,
+                "slope_aspect_deg": 180.0,
+                "elevation_m": 1500.0,
+                "lulc_category": 3,
                 "road_distance_km": 2.5,
-                "rainfall_3d_mm": 45.0, "rainfall_7d_mm": 80.0,
-                "rainfall_15d_mm": 120.0, "rainfall_30d_mm": 200.0,
+                "rainfall_3d_mm": 45.0,
+                "rainfall_7d_mm": 80.0,
+                "rainfall_15d_mm": 120.0,
+                "rainfall_30d_mm": 200.0,
             }
         ]
         config = PipelineConfig(output_dir=str(tmp_path))
@@ -549,6 +678,7 @@ class TestSaveMetadata:
         path = save_metadata(dataset, config, output_path=tmp_path / "meta.json")
         assert path.exists()
         import json
+
         with open(path) as f:
             meta = json.load(f)
         assert meta["n_positive"] == 1
@@ -560,6 +690,7 @@ class TestSaveMetadata:
 # ============================================================================
 # 15. End-to-end pipeline with dev fixtures
 # ============================================================================
+
 
 class TestEndToEndPipeline:
     def test_full_pipeline_with_fixtures(self, tmp_path):
@@ -575,8 +706,12 @@ class TestEndToEndPipeline:
         )
 
         # Load data
-        events = load_landslide_inventory(FIXTURE_DIR / "landslide_events_dev_fixture.csv")
-        rainfall = load_rainfall_timeseries(RAW_FIXTURE_DIR / "rainfall_dev_fixture.csv")
+        events = load_landslide_inventory(
+            FIXTURE_DIR / "landslide_events_dev_fixture.csv"
+        )
+        rainfall = load_rainfall_timeseries(
+            RAW_FIXTURE_DIR / "rainfall_dev_fixture.csv"
+        )
 
         # Create grid
         cells = create_grid_cells(27.25, 88.50, 27.45, 88.75, config.grid_resolution_km)
