@@ -12,6 +12,8 @@ DESIGN PRINCIPLES:
        availability, and whether it uses real or synthetic data.
     4. Testability: All transformers accept plain dicts, no database or
        API dependencies.
+    5. Single source of truth: All feature computation logic lives here.
+       Data pipeline uses these transformers for train/inference consistency.
 
 FEATURE FAMILIES:
     - Rainfall: current + antecedent (3d, 7d, 15d, 30d)
@@ -19,6 +21,12 @@ FEATURE FAMILIES:
     - Proximity: distance to nearest historical landslide (leakage-safe)
     - Land cover: extensible stub (no real data available)
     - Road density: extensible stub (no real data available)
+
+LABELING METHODOLOGY:
+    The task is landslide forecasting: given conditions at sample_date,
+    predict whether a landslide occurs within lead_time_days.
+    Positive samples have sample_date = event_date - lead_time_days.
+    Features at sample_date must only use data available AT OR BEFORE sample_date.
 """
 
 from __future__ import annotations
@@ -381,6 +389,52 @@ class ProximityFeatureTransformer:
         self.events = landslide_events
         self.events.sort(key=lambda e: e["event_date"])
 
+    def _get_past_events(
+        self,
+        sample_date: date,
+        exclude_event_id: str | None = None,
+    ) -> list[dict]:
+        """Get events strictly before sample_date, optionally excluding one."""
+        past_events = [e for e in self.events if e["event_date"] < sample_date]
+        if exclude_event_id:
+            past_events = [e for e in past_events if e["event_id"] != exclude_event_id]
+        return past_events
+
+    def is_cell_excluded(
+        self,
+        cell_lat: float,
+        cell_lon: float,
+        sample_date: date,
+        exclusion_buffer_km: float,
+        exclude_event_id: str | None = None,
+    ) -> bool:
+        """Check if a cell is within exclusion buffer of any past landslide.
+
+        This is used for negative sampling to ensure negatives are not
+        near any historical landslide (using only past events).
+
+        Args:
+            cell_lat: Grid cell centroid latitude.
+            cell_lon: Grid cell centroid longitude.
+            sample_date: The sample date. Only events before this are checked.
+            exclusion_buffer_km: Buffer distance in km.
+            exclude_event_id: Optional event_id to exclude.
+
+        Returns:
+            True if cell is within buffer of any past landslide.
+        """
+        past_events = self._get_past_events(sample_date, exclude_event_id)
+        for event in past_events:
+            dist = _haversine_km(
+                cell_lat,
+                cell_lon,
+                event["latitude"],
+                event["longitude"],
+            )
+            if dist <= exclusion_buffer_km:
+                return True
+        return False
+
     def compute(
         self,
         cell_lat: float,
@@ -401,18 +455,33 @@ class ProximityFeatureTransformer:
         Returns:
             Dict with distance_nearest_landslide_km and n_landslides_within_5km.
         """
-        # Filter to events strictly before sample_date
-        past_events = [e for e in self.events if e["event_date"] < sample_date]
-
-        # Optionally exclude a specific event (the target event)
-        if exclude_event_id:
-            past_events = [e for e in past_events if e["event_id"] != exclude_event_id]
+        past_events = self._get_past_events(sample_date, exclude_event_id)
 
         if not past_events:
             return {
                 "distance_nearest_landslide_km": 999.0,
                 "n_landslides_within_5km": 0,
             }
+
+        min_dist = float("inf")
+        n_within_5km = 0
+
+        for event in past_events:
+            dist = _haversine_km(
+                cell_lat,
+                cell_lon,
+                event["latitude"],
+                event["longitude"],
+            )
+            if dist < min_dist:
+                min_dist = dist
+            if dist <= 5.0:
+                n_within_5km += 1
+
+        return {
+            "distance_nearest_landslide_km": round(min_dist, 4),
+            "n_landslides_within_5km": n_within_5km,
+        }
 
         min_dist = float("inf")
         n_within_5km = 0

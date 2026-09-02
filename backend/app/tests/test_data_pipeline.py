@@ -22,8 +22,8 @@ from app.ml.data_pipeline import (
     _slope_to_bin,
     assemble_dataset,
     check_leakage,
-    compute_antecedent_rainfall,
     create_grid_cells,
+    get_class_weights,
     label_positive_samples,
     load_landslide_inventory,
     load_rainfall_timeseries,
@@ -32,7 +32,9 @@ from app.ml.data_pipeline import (
     save_dataset,
     save_metadata,
     split_train_test,
+    walk_forward_split,
 )
+from app.ml.feature_engineering import RainfallFeatureTransformer
 
 FIXTURE_DIR = Path(__file__).resolve().parent.parent.parent.parent / "data" / "reference"
 RAW_FIXTURE_DIR = Path(__file__).resolve().parent.parent.parent.parent / "data" / "raw"
@@ -202,13 +204,13 @@ class TestLabelPositiveSamples:
 
     def test_basic_positive_labeling(self):
         cells, events = self._make_test_data()
-        config = PipelineConfig()
+        config = PipelineConfig(lead_time_days=1)
         positives = label_positive_samples(cells, events, config)
         assert len(positives) == 2
 
     def test_positive_has_required_fields(self):
         cells, events = self._make_test_data()
-        config = PipelineConfig()
+        config = PipelineConfig(lead_time_days=1)
         positives = label_positive_samples(cells, events, config)
         for p in positives:
             assert "grid_cell_id" in p
@@ -217,16 +219,17 @@ class TestLabelPositiveSamples:
             assert p["label"] == 1
             assert "event_id" in p
 
-    def test_window_days_zero_uses_event_date(self):
+    def test_lead_time_one_day_shifts_date(self):
         cells, events = self._make_test_data()
-        config = PipelineConfig(positive_window_days=0)
+        config = PipelineConfig(lead_time_days=1)
         positives = label_positive_samples(cells, events, config)
         for p in positives:
-            assert p["sample_date"] == p["event_date"]
+            # sample_date = event_date - 1 day (lead_time_days=1)
+            assert p["sample_date"] == p["event_date"] - timedelta(days=1)
 
-    def test_window_days_nonzero_shifts_date(self):
+    def test_lead_time_three_days_shifts_date(self):
         cells, events = self._make_test_data()
-        config = PipelineConfig(positive_window_days=3)
+        config = PipelineConfig(lead_time_days=3)
         positives = label_positive_samples(cells, events, config)
         for p in positives:
             # sample_date = event_date - 3 days
@@ -322,36 +325,31 @@ class TestComputeAntecedentRainfall:
 
     def test_basic_computation(self):
         records = self._make_rainfall()
-        features = compute_antecedent_rainfall(
-            records, date(2022, 7, 10), 27.30, 88.60, windows=[3]
-        )
+        transformer = RainfallFeatureTransformer(records, windows=[3])
+        features = transformer.compute(27.30, 88.60, date(2022, 7, 10))
         # Days 7, 8, 9 (July 7-9) → rainfall 7 + 8 + 9 = 24.0
         assert "rainfall_3d_mm" in features
         assert features["rainfall_3d_mm"] == pytest.approx(24.0, abs=0.1)
 
     def test_excludes_sample_date(self):
         records = self._make_rainfall()
-        features = compute_antecedent_rainfall(
-            records, date(2022, 7, 10), 27.30, 88.60, windows=[1]
-        )
+        transformer = RainfallFeatureTransformer(records, windows=[1])
+        features = transformer.compute(27.30, 88.60, date(2022, 7, 10))
         # Day 9 (July 9) → rainfall 9.0 (July 10 is excluded)
         assert features["rainfall_1d_mm"] == pytest.approx(9.0, abs=0.1)
 
     def test_multiple_windows(self):
         records = self._make_rainfall()
-        features = compute_antecedent_rainfall(
-            records, date(2022, 7, 10), 27.30, 88.60, windows=[3, 7]
-        )
+        transformer = RainfallFeatureTransformer(records, windows=[3, 7])
+        features = transformer.compute(27.30, 88.60, date(2022, 7, 10))
         assert "rainfall_3d_mm" in features
         assert "rainfall_7d_mm" in features
         assert features["rainfall_7d_mm"] > features["rainfall_3d_mm"]
 
     def test_no_nearby_stations_returns_zeros(self):
         records = self._make_rainfall()
-        features = compute_antecedent_rainfall(
-            records, date(2022, 7, 10), 29.0, 90.0, windows=[3],
-            max_station_distance_km=1.0,
-        )
+        transformer = RainfallFeatureTransformer(records, windows=[3], max_station_distance_km=1.0)
+        features = transformer.compute(29.0, 90.0, date(2022, 7, 10))
         assert features["rainfall_3d_mm"] == 0.0
 
 
@@ -492,15 +490,20 @@ class TestAssembleDataset:
             "label": 1, "risk_level": "High", "event_id": "E1",
             "source_reference": "test", "data_origin": "DEV_FIXTURE",
         }]
-        config = PipelineConfig()
-        dataset = assemble_dataset(positives, [], [], {}, config)
+        # Provide minimal rainfall data so features get computed
+        rainfall = [{
+            "station_id": "S1", "station_lat": 27.3, "station_lon": 88.6,
+            "reading_date": date(2022, 7, 14), "rainfall_mm": 10.0,
+        }]
+        config = PipelineConfig(lead_time_days=1)
+        dataset = assemble_dataset(positives, [], rainfall, {}, config)
         required = [
             "sample_id", "grid_cell_id", "centroid_lat", "centroid_lon",
             "sample_date", "event_date", "label", "risk_level", "event_id",
             "source_reference", "data_origin",
             "slope_angle_deg", "slope_aspect_deg", "elevation_m",
             "lulc_category", "road_distance_km",
-            "rainfall_3d_mm", "rainfall_7d_mm", "rainfall_15d_mm", "rainfall_30d_mm",
+            "rainfall_current_mm", "rainfall_3d_mm", "rainfall_7d_mm", "rainfall_15d_mm", "rainfall_30d_mm",
         ]
         for field in required:
             assert field in dataset[0], f"Missing field: {field}"
