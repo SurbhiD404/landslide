@@ -1,12 +1,51 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.db.models import RiskZone
+from app.db.session import get_session
 
 router = APIRouter(prefix="/risk-zones", tags=["risk-zones"])
 
 
 @router.get("")
-async def list_risk_zones():
+async def list_risk_zones(session: AsyncSession = Depends(get_session)):
     """Return all risk zones with current risk level (GeoJSON)."""
-    return {"type": "FeatureCollection", "features": []}
+    result = await session.execute(
+        text(
+            """
+            SELECT
+                id,
+                zone_name,
+                district,
+                state,
+                current_risk_level,
+                last_computed_at,
+                ST_AsGeoJSON(geom)::json AS geometry
+            FROM risk_zones
+            """
+        )
+    )
+    rows = result.mappings().all()
+
+    features = []
+    for row in rows:
+        features.append(
+            {
+                "type": "Feature",
+                "geometry": row["geometry"],
+                "properties": {
+                    "id": row["id"],
+                    "zone_name": row["zone_name"],
+                    "district": row["district"],
+                    "state": row["state"],
+                    "current_risk_level": row["current_risk_level"],
+                    "last_computed_at": row["last_computed_at"],
+                },
+            }
+        )
+
+    return {"type": "FeatureCollection", "features": features}
 
 
 @router.get("/{zone_id}/history")
