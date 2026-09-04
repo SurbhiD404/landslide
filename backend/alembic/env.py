@@ -11,10 +11,20 @@ if config.config_file_name is not None:
 
 target_metadata = Base.metadata
 
+OUR_TABLES = {
+    "risk_zones", "weather_readings", "historical_landslides",
+    "field_reports", "alerts", "users",
+}
+
+def include_object(object, name, type_, reflected, compare_to):
+    if type_ == "table" and reflected and name not in OUR_TABLES:
+        return False
+    return True
+
 
 def run_migrations_offline() -> None:
     url = config.get_main_option("sqlalchemy.url")
-    context.configure(url=url, target_metadata=target_metadata, literal_binds=True, dialect_opts={"paramstyle": "named"})
+    context.configure(url=url, target_metadata=target_metadata, literal_binds=True, dialect_opts={"paramstyle": "named"}, include_object=include_object)
     with context.begin_transaction():
         context.run_migrations()
 
@@ -22,7 +32,7 @@ def run_migrations_offline() -> None:
 def run_migrations_online() -> None:
     connectable = engine_from_config(config.get_section(config.config_ini_section, {}), prefix="sqlalchemy.", poolclass=pool.NullPool)
     with connectable.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata)
+        context.configure(connection=connection, target_metadata=target_metadata, include_object=include_object)
         with context.begin_transaction():
             context.run_migrations()
 
