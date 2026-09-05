@@ -5,7 +5,7 @@ function App() {
 
   const checkHealth = async () => {
     try {
-      const res = await fetch("/health");
+      const res = await fetch("http://localhost:8000/health");
       const data = await res.json();
       setHealth(JSON.stringify(data));
     } catch {
