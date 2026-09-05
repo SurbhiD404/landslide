@@ -48,6 +48,7 @@ class FieldReport(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    zone_id: Mapped[int | None] = mapped_column(ForeignKey("risk_zones.id"))
     geom: Mapped[dict | None] = mapped_column(Geometry(geometry_type="POINT", srid=4326))
     photo_url: Mapped[str | None] = mapped_column(Text)
     video_url: Mapped[str | None] = mapped_column(Text)
