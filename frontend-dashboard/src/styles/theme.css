@@ -1,0 +1,66 @@
+:root {
+  --color-primary: #1e3a5f;
+  --color-primary-light: #2c5282;
+  --color-background: #f7f8fa;
+  --color-surface: #ffffff;
+  --color-border: #e2e5e9;
+  --color-text-primary: #1a202c;
+  --color-text-secondary: #5a6472;
+  --risk-low: #2f9e44;
+  --risk-moderate: #f0b429;
+  --risk-high: #e8590c;
+  --risk-severe: #c92a2a;
+  --font-family: -apple-system, "Segoe UI", Roboto, system-ui, sans-serif;
+  --radius: 8px;
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--color-background);
+  color: var(--color-text-primary);
+  font-family: var(--font-family);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Responsive stats grid: 4 cols desktop, 2 tablet, 1 mobile */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+}
+
+@media (max-width: 1024px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Two-column dashboard layout */
+.dashboard-layout {
+  display: grid;
+  grid-template-columns: 65% calc(35% - 20px);
+  gap: 20px;
+  margin-top: 24px;
+}
+
+@media (max-width: 960px) {
+  .dashboard-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
